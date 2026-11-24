@@ -82,27 +82,27 @@
             <button class="clear-btn" id="btn-clear-search" style="display: none;">X<>
           </div>
 
-          <div lass="sort-group">
+          <div class="sort-group">
             <label for="sort-select">Sort by:</label>
             <select id="sort-select">
               <option value="aqi_asc">Air quality - cleanest first</option>
               <option value="aqi_desc">Air quality - worst first</option>
-              <option vale="temp_desc">Temp. warmest first</option>
+              <option value="temp_desc">Temp. warmest first</option>
               <option value="temp_asc">Temp. coldest first </option>
-              <option value="name_asc">City A - Z</option>
-              <option value="name_desc">City Z - A</option>
+              <option value="name_asc">City [A-Z]</option>
+              <option value="name_desc">City [Z-A]</option>
             </select>
           </div>
           <div class="view-toogle">
             <button class="btn-toggle active" id="view-cards-btn" title="Grid Cards View">🎴Cards!</button>
-            <button class="btn-toggle" id="view-table-btn" title="Table View">🎴Table!</button>
+            <button class="btn-toggle" id="view-table-btn" title="Table View">📋Table!</button>
         </div>
 
         <div class="category-filters">
           <span class="filter-label">Air Quality Tier</span>
-          <button class="pill-btn active" data-category=all>All tiers</button>
+          <button class="pill-btn active" data-category="all">All tiers</button>
           <button class="pill-btn pill-good" data-category="good">Good(0-50)</button>
-          <button class="pill-btn pill-moderate" dat-category="moderate">Moderate(51-100)</button>
+          <button class="pill-btn pill-moderate" data-category="moderate">Moderate(51-100)</button>
           <button class="pill-btn pill-sensitive" data-category="sensitive">Sensitive(101-150)</button>
           <button class="pill-btn pill-unhelathy" data-category="unhealthy">Unhealthy(151+)</button>
         </div>
