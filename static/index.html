@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AeroPulse | Global Air QUality | Environmental Health</title>
+    <title>AeroPulse | Global Air Quality | Environmental Health</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com">
@@ -24,7 +24,7 @@
             <div class="node-pill" id="cluster-node-pill" title="Load Balancer Node">
               <span class="pulsing-dot"><span>
               <span class="node-label">Server</span>
-              <span class="node-value" id="current-serve-id">Checking...</span>
+              <span class="node-value" id="current-server-id">Checking...</span>
               <span class="node-latency">-- ms</span>
             </div>
             <button class="btn btn-outline btn-sm" id="btn-test-lb" title="Test Round Robin">
@@ -39,17 +39,39 @@
     </header>
 
     <main class="main-content">
-      <section>
-        <><>
-        <><>
-        <><>
-        <><>
-        <><>
-        <><>
-        <><>
-        <><>
-        <><>
-        <><>
+      <section class="hero-section">
+        <div class="hero-header">
+          <h2>Real Time Environmental Risk Monitoring</h2>
+          <p>Automated air quality tracking (PM2.5 PM10) & weather hazards across major global cities through the Open-Meteo REST API</p>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-title">Global Avg AQI</span>
+            <div class="kpi-value-row">
+              <span class="kpi-value" id="kpi-avg-aqi">-</span>
+              <span class="kpi-unit">US AQI</span>
+        </div>
+        <span class="kpi-subtext" id="kpi-cleanest-sub">Lowest particulate load</span>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-title">Highest Risk City</span>
+          <div class="kpi-value-row">
+            <span class="kpi-value highlight-risk" id="kpi-risk-city">-</span>
+          </div>
+          <span class="kpi-subtext" id="kpi-risk-sub">Requires protective precautions</span>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-title">Monitored Hubs</span>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-city-count">12</span>
+            <span class="kpi-unit">Metros</span>
+          </div>
+          <span class="kpi-subtext">Active telemetry streams</span>
+        </div>
+        </div>
       </section>
 
       <section>
