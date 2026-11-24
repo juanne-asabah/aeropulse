@@ -108,8 +108,23 @@
         </div>
       </section>
 
-      <section>
+      <section class="results-section">
+        <div class="lading-state" id=loading-spinner>
+          <div class="spinner"></div>
+          <p>Retrieving atmospheric telemetry via Open-Meteo REST API...</p>
+        </div>
 
+        <div class="alert-banner" id="error-banner" style="display: none;">
+          <span class="alert-icon">⚠️</span>
+          <span class="alert-message" id="error-message">Network timeout!!/API unreachable!!</span>
+          <button class="btn btn-sm btn-outline" id="btn-retry">Retry fetch...</button>
+        </div>
+        
+        <div class="cards-grid" id="table-container"  style="display: none;"></div>
+
+        <div class="table-container" id="table-container" style="display: none;">
+          <table class="data-table"></table>
+        </div>
       </section>
     </main>
 
