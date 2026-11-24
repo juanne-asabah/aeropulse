@@ -142,6 +142,81 @@
       </section>
     </main>
 
+    <div class="modal-backdrop" id="modal-advisory" style="display: none;">
+      <div class="modal-window">
+        <div class="modal-header">
+          <div>
+            <h3 id="modal-close-btn">City Advisory</h3>
+            <span class="modal-sutitle" id="modal-city-subtitle">Detailed Audit</span>
+          </div>
+          <button class="modal-close-btn" id="btn-close-advisory">X</button>
+        </div>
+        <div class="modal-body" id="modal-advisory-body"></div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="modal-cluster-test" style="display: none;">
+      <div class="modal-window modal-lg">
+        <div class="modal-header">
+          <div>
+            <h3>⚖️Load Balancer Cluster Distribution Benchmark</h3>
+            <span class="modal-subtitle">Verifying round robin traffic distribution across Web01 & Web02</span>
+          </div>
+          <button class="modal-close-btn" id="btn-close-clster-test">X</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            This test sends 10 consecutive requests to the Load Balancer endpoint (<code>/api/health</code>).
+            Each response inspects the <code>X-Served-By</code> HTTP header to demonstrate multi tier server load distribution.
+          </p>
+
+          <div class="cluster-summary-box">
+            <div class="cluster-metric">
+              <span class="cm-label">Web01 Responses</span>
+              <span class="cm-val highlight-web01" id="test-count-web01">0</span>
+            </div>
+            <div class="cluster-metric">
+              <span class="cm-label">Web02 Resources</span>
+              <span class="cm-val highlight -web02" id="test-count-web02">0<span>
+            </div>
+            <div class="cluster-metric">
+              <span class="cm-label">Avg Cluster Latency</span>
+              <span class="cm-val" id="test-av-latency">-- ms</span>
+            </div>
+          </div>
+          <div class="distribution-bar-wrapper">
+            <div class="distribution-bar">
+              <div class="dist-segment dist-web01" id="dist-bar-web01" style="width: 50%;">Web01 (50%)</div>
+              <div class="dist-segment dist-we02" id="dist-bar-web02" style="width: 50%;">Web02 (50%)</div>
+            </div>
+          </div>
+
+          <div class="cluste-logs-container">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Timestamp</th>
+                  <th>Served Node</th>
+                  <th>Port</th>
+                  <th>Latency</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="cluster-log-body"></tbody>
+            </table>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-primary" id="btn-run-cluster-test">🚀Execute 10-request cluster test</button>
+            <button class="btn btn-outline" id="btn-dismiss-cluster-test">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
     <footer class="app-footer">
       <div class="footer-container">
         <p><strong>AeroPulse</strong> &copy; 2026. Powered by Open-Meteo REST API</p>
