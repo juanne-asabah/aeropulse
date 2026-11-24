@@ -109,9 +109,9 @@
       </section>
 
       <section class="results-section">
-        <div class="lading-state" id=loading-spinner>
+        <div class="loading-state" id=loading-spinner>
           <div class="spinner"></div>
-          <p>Retrieving atmospheric telemetry via Open-Meteo REST API...</p>
+          <p>Fetching atmospheric telemetry via Open-Meteo REST API...</p>
         </div>
 
         <div class="alert-banner" id="error-banner" style="display: none;">
@@ -120,10 +120,24 @@
           <button class="btn btn-sm btn-outline" id="btn-retry">Retry fetch...</button>
         </div>
         
-        <div class="cards-grid" id="table-container"  style="display: none;"></div>
+        <div class="cards-grid" id="table-container" style="display: none;"></div>
 
         <div class="table-container" id="table-container" style="display: none;">
-          <table class="data-table"></table>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>City/Country</th>
+                <th>US AQI</th>
+                <th>Health Category</th>
+                <th>Temperature</th>
+                <th>PM2.5</th>
+                <th>PM10</th>
+                <th>UV Index</th>
+                <th>Served Node</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+          </table>
         </div>
       </section>
     </main>
@@ -131,10 +145,10 @@
     <footer class="app-footer">
       <div class="footer-container">
         <p><strong>AeroPulse</strong> &copy; 2026. Powered by Open-Meteo REST API</p>
-        <p class="footer-sub">Designed for High Availability distributed systems | Architecture <code>Lb01 (HAProxy) &arr; Web01/Web02</code></p>
+        <p class="footer-sub">Designed for high availability distributed systems | Architecture <code>Lb01 (HAProxy) &arr; Web01/Web02</code></p>
       </div>
     </footer>
 
-    <script sr="js/app.js">
+    <script src="js/app.js">
   </body>
 </html>
