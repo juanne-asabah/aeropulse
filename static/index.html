@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroPulse | Global Air QUality | Environmental Health</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel=stylesheet href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  </head>
+  <body>
+    <header>
+      <div class="header-container">
+        <div class="logo-group">
+          <div class="logo-icon">🍃</div>
+            <div class="logo-text">
+              <h1>AeroPulse</h1>
+              <span class="badge-sub">Environmental Health</span>
+            </div>
+          </div>
+          
+          <div class="cluster-status-bar">
+            <div class="node-pill" id="cluster-node-pill" title="Load Balancer Node">
+              <span class="pulsing-dot"><span>
+              <span class="node-label">Server</span>
+              <span class="node-value" id="current-serve-id">Checking...</span>
+              <span class="node-latency">-- ms</span>
+            </div>
+            <button class="btn btn-outline btn-sm" id="btn-test-lb" title="Test Round Robin">
+              ⚖️
+            </button>
+            <button class="btn btn-icon" id="btn-refresh" title="Refresh Live Data">
+              🔄
+            </button>
+          </div>
+      </div>
+
+    </header>
+    <footer class="app-footer">
+      <div class="footer-container">
+        <p><strong>AeroPulse</strong> &copy; 2026. Powered by Open-Meteo REST API</p>
+        <p class="footer-sub">Designed for High Availability distributed systems | Architecture <code>Lb01 (HAProxy) &arr; Web01/Web02</code></p>
+      </div>
+    </footer>
+
+    <script sr="js/app.js">
+  </body>
+</html>
