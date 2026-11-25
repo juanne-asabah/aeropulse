@@ -1,0 +1,15 @@
+[Unit]
+Description=AeroPulse Application Node 01 (Web01)
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/var/www/aeropulse
+Environment="PATH=/var/www/aeropulse/venv/bin"
+EnvironmentFile=/var/www/aeropulse/.env
+ExecStart=/var/www/aeropulse/venv/bin/gunicorn -w 1 --threads 8 -b 0.0.0.0:5001 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
