@@ -1,0 +1,243 @@
+const $ = id => document.getElementById(id);
+const state = { cities: [], activeCategory: 'all', searchQuery: '', sortBy: 'aqi_asc', viewMode: 'cards' };
+const UG = ' &mu;g/m&sup3;';
+const show = (id, display = 'flex') => { $(id).style.display = display; };
+const hide = id => show(id, 'none');
+
+function showToast(msg, type = 'info') {
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.textContent = msg;
+    $('toast-container').appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+const getCategoryClass = cat => {
+    const c = (cat || '').toLowerCase();
+    return c.includes('good') ? 'status-good' : c.includes('moderate') ? 'status-moderate' : c.includes('sensitive') ? 'status-sensitive' : 'status-unhealthy';
+};
+const getAqiColor = aqi => aqi <= 50 ? 'seagreen' : aqi <= 100 ? 'goldenrod' : aqi <= 150 ? 'darkorange' : 'crimson';
+
+// Show which server answered and how long it took
+function showNode(res, t0) {
+    $('current-server-id').textContent = res.headers.get('X-Served-By') || 'Web01';
+    $('current-latency').textContent = `${Math.round(performance.now() - t0)} ms`;
+}
+
+async function fetchClusterHealth() {
+    try {
+        const t0 = performance.now();
+        showNode(await fetch('/api/health'), t0);
+    } catch (e) {
+        $('current-server-id').textContent = 'Standby';
+    }
+}
+
+async function fetchCityData() {
+    show('loading-spinner');
+    hide('error-banner');
+    try {
+        const params = new URLSearchParams({ search: state.searchQuery, category: state.activeCategory, sort_by: state.sortBy });
+        const t0 = performance.now();
+        const res = await fetch(`/api/cities?${params}`);
+        if (!res.ok) throw new Error('Failed to load city metrics');
+        const data = await res.json();
+        showNode(res, t0);
+        state.cities = data.cities || [];
+        if (state.cities.some(c => c.is_fallback)) showToast('Live API unavailable - showing sample data', 'error');
+        updateKpiDisplay(data.summary, state.cities.length);
+        renderCurrentView();
+    } catch (err) {
+        $('error-message').textContent = err.message || 'API Unreachable';
+        show('error-banner');
+    } finally {
+        hide('loading-spinner');
+    }
+}
+
+async function searchGlobalCity(query) {
+    showToast(`Querying ${query}...`, 'info');
+    try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'City lookup failed');
+        showToast(`Retrieved ${data.name}, ${data.country}!`, 'success');
+        state.cities.unshift(data);
+        renderCurrentView();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+function updateKpiDisplay(s, count) {
+    if (!s) return;
+    $('kpi-avg-aqi').textContent = s.average_aqi;
+    $('kpi-city-count').textContent = count;
+    $('kpi-cleanest-city').textContent = s.cleanest_city;
+    $('kpi-risk-city').textContent = s.highest_risk_city;
+    $('kpi-avg-desc').textContent = s.average_aqi <= 50 ? 'Optimal Global Air Quality' : 'Elevated Pollution Risk';
+}
+
+function renderCurrentView() {
+    const cards = state.viewMode === 'cards';
+    $('cards-container').style.display = cards ? 'grid' : 'none';
+    $('table-container').style.display = cards ? 'none' : 'block';
+    cards ? renderCardsView() : renderTableView();
+}
+
+function renderCardsView() {
+    const box = $('cards-container');
+    box.innerHTML = state.cities.length ? '' : '<div style="grid-column:1/-1;text-align:center;padding:2rem;">No matching cities found</div>';
+    state.cities.forEach(city => {
+        const color = getAqiColor(city.aqi_us);
+        const card = document.createElement('div');
+        card.className = 'city-card';
+        card.innerHTML = `
+            <div>
+                <div class="card-top">
+                    <div><div class="city-name">${city.name}</div><div class="city-country">${city.country}</div></div>
+                    <div class="aqi-gauge" style="border-color:${color};">
+                        <span class="aqi-num" style="color:${color};">${city.aqi_us}</span>
+                        <span class="aqi-lbl">US AQI</span>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:0.85rem 0 0.5rem 0;">
+                    <span class="status-badge ${getCategoryClass(city.category)}" style="margin:0;">${city.category}</span>
+                    <span style="font-weight:700;font-size:1.05rem;">🌡️ ${city.temperature}&deg;C</span>
+                </div>
+            </div>
+            <div class="card-footer">
+                <span class="cache-tag ${city.cache_source === 'HIT' ? 'hit' : 'miss'}">Cache: ${city.cache_source}</span>
+                <button class="btn btn-outline btn-sm">Advisory ℹ️</button>
+            </div>`;
+        card.querySelector('button').onclick = () => openAdvisoryModal(city);
+        box.appendChild(card);
+    });
+}
+
+function renderTableView() {
+    const node = $('current-server-id').textContent;
+    $('table-body').innerHTML = state.cities.map(c => `
+        <tr>
+            <td><strong>${c.name}</strong>, ${c.country}</td>
+            <td style="font-weight:700;color:${getAqiColor(c.aqi_us)};">${c.aqi_us}</td>
+            <td><span class="status-badge ${getCategoryClass(c.category)}" style="margin:0;">${c.category}</span></td>
+            <td>${c.temperature}&deg;C</td>
+            <td>${c.pm2_5}${UG}</td>
+            <td>${c.pm10}${UG}</td>
+            <td>${c.uv_index}</td>
+            <td><code>${node}</code></td>
+            <td><button class="btn btn-outline btn-sm">Advisory</button></td>
+        </tr>`).join('');
+    $('table-body').querySelectorAll('button').forEach((b, i) => { b.onclick = () => openAdvisoryModal(state.cities[i]); });
+}
+
+function openAdvisoryModal(c) {
+    $('modal-city-title').textContent = `${c.name}, ${c.country}`;
+    $('modal-city-subtitle').textContent = `Lat: ${c.latitude} | Lon: ${c.longitude} | Updated: ${c.updated_at}`;
+    const tip = c.aqi_us <= 50 ? 'Optimal air quality. Ideal for outdoor recreation.'
+        : c.aqi_us <= 100 ? 'Moderate air quality. Unusually sensitive individuals should monitor symptoms.'
+        : 'Elevated pollutant levels. Limit intense outdoor activities.';
+    const tiles = [['PM2.5', c.pm2_5], ['PM10', c.pm10], ['Carbon Monoxide', c.co], ['Nitrogen Dioxide', c.no2]]
+        .map(([label, v]) => `<div style="background:whitesmoke;padding:0.75rem;border-radius:8px;"><div>${label}</div><strong>${v}${UG}</strong></div>`).join('');
+    $('modal-advisory-body').innerHTML = `
+        <div style="background:honeydew;padding:1rem;border-radius:8px;margin-bottom:1rem;">
+            <h4 style="color:darkgreen;margin-bottom:0.25rem;">Air Status: ${c.category} (AQI ${c.aqi_us})</h4>
+            <p style="font-size:0.85rem;color:slategray;">${tip}</p>
+        </div>
+        <h4 style="margin:1rem 0 0.5rem 0;">Atmospheric Particulates</h4>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;">${tiles}</div>`;
+    show('modal-advisory');
+}
+
+// Sends 10 requests through the load balancer and counts which server answered
+async function runClusterLoadTest() {
+    const btn = $('btn-run-cluster-test');
+    btn.disabled = true;
+    btn.textContent = 'Benchmarking...';
+    $('cluster-log-body').innerHTML = '';
+    let w1 = 0, w2 = 0, totalMs = 0;
+
+    for (let i = 1; i <= 10; i++) {
+        const t0 = performance.now();
+        try {
+            const res = await fetch(`/api/health?_t=${Date.now()}_${i}`);
+            const ms = Math.round(performance.now() - t0);
+            totalMs += ms;
+            const node = res.headers.get('X-Served-By') || 'Web01';
+            node.toLowerCase().includes('web01') ? w1++ : w2++;
+            $('cluster-log-body').insertAdjacentHTML('beforeend',
+                `<tr><td>#${i}</td><td>${new Date().toLocaleTimeString()}</td><td style="font-weight:700;">${node}</td><td>${res.headers.get('X-Server-Port') || '5001'}</td><td>${ms} ms</td><td style="color:seagreen;">200 OK</td></tr>`);
+
+            const p1 = Math.round((w1 / i) * 100);
+            [['Web01', w1, p1], ['Web02', w2, 100 - p1]].forEach(([name, count, pct]) => {
+                const id = name.toLowerCase();
+                $(`test-count-${id}`).textContent = count;
+                $(`dist-bar-${id}`).style.width = `${pct}%`;
+                $(`dist-bar-${id}`).textContent = `${name} (${pct}%)`;
+            });
+            $('test-avg-latency').textContent = `${Math.round(totalMs / i)} ms`;
+            await new Promise(r => setTimeout(r, 100));
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    btn.disabled = false;
+    btn.textContent = '🚀 Re-Run 10-Request Cluster Test';
+    showToast(`Test complete! Web01: ${w1}, Web02: ${w2}`, 'success');
+}
+
+function setupEvents() {
+    let timer;
+    const setSearch = value => {
+        state.searchQuery = value;
+        $('btn-clear-search').style.display = value ? 'block' : 'none';
+        fetchCityData();
+    };
+    $('filter-search-input').oninput = e => {
+        clearTimeout(timer);
+        timer = setTimeout(() => setSearch(e.target.value.trim()), 250);
+    };
+    $('btn-clear-search').onclick = () => { $('filter-search-input').value = ''; setSearch(''); };
+
+    $('btn-global-search').onclick = () => {
+        const q = $('global-search-input').value.trim();
+        if (q) { searchGlobalCity(q); $('global-search-input').value = ''; }
+    };
+    $('global-search-input').onkeydown = e => { if (e.key === 'Enter') $('btn-global-search').click(); };
+
+    $('sort-select').onchange = e => { state.sortBy = e.target.value; fetchCityData(); };
+    document.querySelectorAll('.pill-btn').forEach(pill => {
+        pill.onclick = () => {
+            document.querySelectorAll('.pill-btn').forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            state.activeCategory = pill.dataset.category;
+            fetchCityData();
+        };
+    });
+
+    const setView = mode => {
+        state.viewMode = mode;
+        $('view-cards-btn').classList.toggle('active', mode === 'cards');
+        $('view-table-btn').classList.toggle('active', mode === 'table');
+        renderCurrentView();
+    };
+    $('view-cards-btn').onclick = () => setView('cards');
+    $('view-table-btn').onclick = () => setView('table');
+
+    $('btn-refresh').onclick = () => { fetchClusterHealth(); fetchCityData(); showToast('Telemetry refreshed', 'info'); };
+    $('btn-retry').onclick = fetchCityData;
+
+    // Popups: close with the X button, the Close button, or by clicking outside
+    ['modal-advisory', 'modal-cluster-test'].forEach(id => { $(id).onclick = e => { if (e.target === $(id)) hide(id); }; });
+    $('btn-close-advisory').onclick = () => hide('modal-advisory');
+    $('btn-test-lb').onclick = () => show('modal-cluster-test');
+    ['btn-close-cluster-test', 'btn-dismiss-cluster-test'].forEach(id => { $(id).onclick = () => hide('modal-cluster-test'); });
+    $('btn-run-cluster-test').onclick = runClusterLoadTest;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupEvents();
+    fetchClusterHealth();
+    fetchCityData();
+});
