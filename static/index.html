@@ -83,18 +83,20 @@
       </section>
 
       <div class="controls-section">
-        <div class="search-filter-container"></div>
+        <div class="search-filter-container">
           <div class="search-box">
             <span class="search-icon">🔍</span>
             <input type="text" id="filter-search-input" placeholder="Search by city name/country" autocomplete="off">
             <button class="clear-btn" id="btn-clear-search" style="display: none;">X</button>
           </div>
 
-          <div class="search-box">
+          <div class="global-query-group">
+            <div class="search-box">
             <span class="search-icon">🌍</span>
             <input type="text" id="global-search-input" placeholder="Query any city on Earth..." autocomplete="off">
           </div>
           <button class="btn btn-primary" id="btn-global-search">Search Global</button>
+          </div>
 
           <div class="sort-group">
             <label for="sort-select">Sort by:</label>
@@ -107,9 +109,10 @@
               <option value="name_desc">City [Z-A]</option>
             </select>
           </div>
-          <div class="view-toogle">
+          <div class="view-toggle">
             <button class="btn-toggle active" id="view-cards-btn" title="Grid Cards View">🎴Cards!</button>
             <button class="btn-toggle" id="view-table-btn" title="Table View">📋Table!</button>
+        </div>
         </div>
 
         <div class="category-filters">
@@ -236,7 +239,7 @@
     <footer class="app-footer">
       <div class="footer-container">
         <p><strong>AeroPulse</strong> &copy; 2026. Powered by Open-Meteo REST API</p>
-        <p class="footer-sub">Designed for high availability distributed systems | Architecture <code>Lb01 (HAProxy) &arr; Web01/Web02</code></p>
+        <p class="footer-sub">Designed for high availability distributed systems | Architecture <code>Lb01 (HAProxy) &rarr; Web01/Web02</code></p>
       </div>
     </footer>
 
