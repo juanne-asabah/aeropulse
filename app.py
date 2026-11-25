@@ -60,3 +60,52 @@ CITY_DATA = [
   ("Berlin", "Germany", 52.5200, 13.4050, 35, 13.0, 68, 8.4, 15.2, 3.0),
   ("Toronto", "Canada", 43.6532, -79.3832, 31, 11.5, 60, 7.5, 13.8, 4.0),
 ]
+DEFAULT_CITIES = [{"name": c[0], "country": c[1], "lat": c[2], "lon": c[3]} for c in CITY_DATA]
+FALLBACK = {c[0]: c[4:] for c in CITY_DATA}
+
+FIELDS = {"european_aqi": ("aqi_european", 20), "temperature_2m": ("temperature", 20.0),
+          "apparent_temperature": ("feels_like", 20.0), "relative_humidity_2m": ("humidity", 50)
+          "wind_speed_10m": ("wind_speed", 5.0), "uv_index": ("uv_index, 3.0"), "pm2_5": ("pm2_5", 8.0),
+          "pm10": ("pm10", 15.0), "carbon_monoxide": ("co", 200.0), "nitrogen_dioxide": ("no2", 15.0),
+          "sulphur_dioxide": ("so2", 5.0), "ozone": ("o3", 45.0), "weather_code": ("weather_code", 0)}
+
+SOURCES - [("https://air-quality-api.open-meteo.com/v1/air-quality",
+            "european_aqi,us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,uv_index"),
+            ("https://api.open-meteo.com/v1/forecast",
+            "temperature_2m, relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m")]
+
+@app.before_request
+def start_timer():
+  request.environ["t0"] = time.time()
+
+@app.after_request
+def add+headers(response):
+
+
+
+
+
+@app.route("/api/compare")
+def compare_cities():
+  names = [request.args.get("city1", "").strip(), request.args.get("city2", "").strip()]
+  if not all(names):
+    return jsonify(error="Both 'city1' and 'city2' query parameters are required"), 400
+
+  def resolve(name):
+    known = next((c for c in DEFAULT_CITIES if c["name"],lower() == name.lower()), None)
+    return fetch_city_metrics(known or geocode(name))
+
+  try:
+    m1, m2 = resolve(names[0]), resolve(names[1])
+    return jsonify(server_id=SERVER_ID, comparison={
+      "cleaner_city": m1["name"] if m1["aqi_us"] < m2["aqi_us"] else m2["name"],
+      "aqi_difference": abs(m1["aqi_us"] - m2["aqi_us"]), "city1": m1, "city2": m2
+    })
+  except ValueError as arr:
+    return jsonify(error=str(err)), 404
+  except Exception as err:
+    return jsonify(error=f"Comparison failed: {err}"), 500
+
+if__name__ == "__main__":
+  logger.info(f"Starting AeroPulse service on {HOST}:{PORT} (ID: {SERVER_ID})")
+  app.run(host=HOST, port=PORT, debug-False)
