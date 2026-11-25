@@ -1,207 +1,423 @@
-const $ = id => document.getElementById(id);
-const state = { cities: [], activeCategory: 'all', searchQuery: '', sortBy: 'aqi_asc', viewMode: 'cards' };
-const UG = ' &mu;g/m&sup3;';
-const show = (id, display = 'flex') => { $(id).style.display = display; };
-const hide = id => show(id, 'none');
-
-function showToast(msg, type = 'info') {
-    const t = document.createElement('div');
-    t.className = `toast toast-${type}`;
-    t.textContent = msg;
-    $('toast-container').appendChild(t);
-    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-const getCategoryClass = cat => {
-    const c = (cat || '').toLowerCase();
-    return c.includes('good') ? 'status-good' : c.includes('moderate') ? 'status-moderate' : c.includes('sensitive') ? 'status-sensitive' : 'status-unhealthy';
-};
-const getAqiColor = aqi => aqi <= 50 ? 'seagreen' : aqi <= 100 ? 'goldenrod' : aqi <= 150 ? 'darkorange' : 'crimson';
-
-// Show which server answered and how long it took
-function showNode(res, t0) {
-    $('current-server-id').textContent = res.headers.get('X-Served-By') || 'Web01';
-    $('current-latency').textContent = `${Math.round(performance.now() - t0)} ms`;
+body,
+body.dark-theme {
+    background: linear-gradient(135deg, #fce7f3 0%, #fdf2f8 35%, #f0fdf4 70%, #dcfce7 100%) fixed;
+    color: #1e293b;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
 }
 
-async function fetchClusterHealth() {
-    try {
-        const t0 = performance.now();
-        showNode(await fetch('/api/health'), t0);
-    } catch (e) {
-        $('current-server-id').textContent = 'Standby';
-    }
+.header-container,
+.main-content,
+.footer-container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 1.25rem;
 }
 
-async function fetchCityData() {
-    show('loading-spinner');
-    hide('error-banner');
-    try {
-        const params = new URLSearchParams({ search: state.searchQuery, category: state.activeCategory, sort_by: state.sortBy });
-        const t0 = performance.now();
-        const res = await fetch(`/api/cities?${params}`);
-        if (!res.ok) throw new Error('Failed to load city metrics');
-        const data = await res.json();
-        showNode(res, t0);
-        state.cities = data.cities || [];
-        if (state.cities.some(c => c.is_fallback)) showToast('Live API unavailable - showing sample data', 'error');
-        updateKpiDisplay(data.summary, state.cities.length);
-        renderCurrentView();
-    } catch (err) {
-        $('error-message').textContent = err.message || 'API Unreachable';
-        show('error-banner');
-    } finally {
-        hide('loading-spinner');
-    }
+/* Header */
+.app-header {
+    background: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid #fbcfe8;
+    backdrop-filter: blur(8px);
 }
 
-async function searchGlobalCity(query) {
-    showToast(`Querying ${query}...`, 'info');
-    try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'City lookup failed');
-        showToast(`Retrieved ${data.name}, ${data.country}!`, 'success');
-        state.cities.unshift(data);
-        renderCurrentView();
-    } catch (err) {
-        showToast(err.message, 'error');
-    }
+.header-container,
+.card-top,
+.card-footer,
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-function updateKpiDisplay(s, count) {
-    if (!s) return;
-    $('kpi-avg-aqi').textContent = s.average_aqi;
-    $('kpi-city-count').textContent = count;
-    $('kpi-cleanest-city').textContent = s.cleanest_city;
-    $('kpi-risk-city').textContent = s.highest_risk_city;
-    $('kpi-avg-desc').textContent = s.average_aqi <= 50 ? 'Optimal Global Air Quality' : 'Elevated Pollution Risk';
+.logo-group,
+.cluster-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
-function renderCurrentView() {
-    const cards = state.viewMode === 'cards';
-    $('cards-container').style.display = cards ? 'grid' : 'none';
-    $('table-container').style.display = cards ? 'none' : 'block';
-    cards ? renderCardsView() : renderTableView();
+.logo-text h1 {
+    font-size: 1.45rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ec4899, #10b981);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
-function renderCardsView() {
-    const box = $('cards-container');
-    box.innerHTML = state.cities.length ? '' : '<div style="grid-column:1/-1;text-align:center;padding:2rem;">No matching cities found</div>';
-    state.cities.forEach(city => {
-        const color = getAqiColor(city.aqi_us);
-        const card = document.createElement('div');
-        card.className = 'city-card';
-        card.innerHTML = `
-            <div>
-                <div class="card-top">
-                    <div><div class="city-name">${city.name}</div><div class="city-country">${city.country}</div></div>
-                    <div class="aqi-gauge" style="border-color:${color};">
-                        <span class="aqi-num" style="color:${color};">${city.aqi_us}</span>
-                        <span class="aqi-lbl">US AQI</span>
-                    </div>
-                </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin:0.85rem 0 0.5rem 0;">
-                    <span class="status-badge ${getCategoryClass(city.category)}" style="margin:0;">${city.category}</span>
-                    <span style="font-weight:700;font-size:1.05rem;">🌡️ ${city.temperature}&deg;C</span>
-                </div>
-            </div>
-            <div class="card-footer">
-                <span class="cache-tag ${city.cache_source === 'HIT' ? 'hit' : 'miss'}">Cache: ${city.cache_source}</span>
-                <button class="btn btn-outline btn-sm">Advisory ℹ️</button>
-            </div>`;
-        card.querySelector('button').onclick = () => openAdvisoryModal(city);
-        box.appendChild(card);
-    });
+/* Row 1: KPI Metrics Grid */
+.hero-header h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 0.35rem;
 }
 
-function renderTableView() {
-    const node = $('current-server-id').textContent;
-    $('table-body').innerHTML = state.cities.map(c => `
-        <tr>
-            <td><strong>${c.name}</strong>, ${c.country}</td>
-            <td style="font-weight:700;color:${getAqiColor(c.aqi_us)};">${c.aqi_us}</td>
-            <td><span class="status-badge ${getCategoryClass(c.category)}" style="margin:0;">${c.category}</span></td>
-            <td>${c.temperature}&deg;C</td>
-            <td>${c.pm2_5}${UG}</td>
-            <td>${c.pm10}${UG}</td>
-            <td>${c.uv_index}</td>
-            <td><code>${node}</code></td>
-            <td><button class="btn btn-outline btn-sm">Advisory</button></td>
-        </tr>`).join('');
-    $('table-body').querySelectorAll('button').forEach((b, i) => { b.onclick = () => openAdvisoryModal(state.cities[i]); });
+.hero-header p {
+    color: #64748b;
+    font-size: 0.95rem;
 }
 
-function openAdvisoryModal(c) {
-    $('modal-city-title').textContent = `${c.name}, ${c.country}`;
-    $('modal-city-subtitle').textContent = `Lat: ${c.latitude} | Lon: ${c.longitude} | Updated: ${c.updated_at}`;
-    const tip = c.aqi_us <= 50 ? 'Optimal air quality. Ideal for outdoor recreation.'
-        : c.aqi_us <= 100 ? 'Moderate air quality. Unusually sensitive individuals should monitor symptoms.'
-        : 'Elevated pollutant levels. Limit intense outdoor activities.';
-    const tiles = [['PM2.5', c.pm2_5], ['PM10', c.pm10], ['Carbon Monoxide', c.co], ['Nitrogen Dioxide', c.no2]]
-        .map(([label, v]) => `<div style="background:whitesmoke;padding:0.75rem;border-radius:8px;"><div>${label}</div><strong>${v}${UG}</strong></div>`).join('');
-    $('modal-advisory-body').innerHTML = `
-        <div style="background:honeydew;padding:1rem;border-radius:8px;margin-bottom:1rem;">
-            <h4 style="color:darkgreen;margin-bottom:0.25rem;">Air Status: ${c.category} (AQI ${c.aqi_us})</h4>
-            <p style="font-size:0.85rem;color:slategray;">${tip}</p>
-        </div>
-        <h4 style="margin:1rem 0 0.5rem 0;">Atmospheric Particulates</h4>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:0.75rem;">${tiles}</div>`;
-    show('modal-advisory');
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+    margin: 1.5rem 0 2rem;
 }
 
-// Sends 10 requests through the load balancer and counts which server answered
-async function runClusterLoadTest() {
-    const btn = $('btn-run-cluster-test');
-    btn.disabled = true;
-    btn.textContent = 'Benchmarking...';
-    $('cluster-log-body').innerHTML = '';
-    let w1 = 0, w2 = 0, totalMs = 0;
-
-    for (let i = 1; i <= 10; i++) {
-        const t0 = performance.now();
-        try {
-            const res = await fetch(`/api/health?_t=${Date.now()}_${i}`);
-            const ms = Math.round(performance.now() - t0);
-            totalMs += ms;
-            const node = res.headers.get('X-Served-By') || 'Web01';
-            node.toLowerCase().includes('web01') ? w1++ : w2++;
-            $('cluster-log-body').insertAdjacentHTML('beforeend',
-                `<tr><td>#${i}</td><td>${new Date().toLocaleTimeString()}</td><td style="font-weight:700;">${node}</td><td>${res.headers.get('X-Server-Port') || '5001'}</td><td>${ms} ms</td><td style="color:seagreen;">200 OK</td></tr>`);
-
-            const p1 = Math.round((w1 / i) * 100);
-            [['Web01', w1, p1], ['Web02', w2, 100 - p1]].forEach(([name, count, pct]) => {
-                const id = name.toLowerCase();
-                $(`test-count-${id}`).textContent = count;
-                $(`dist-bar-${id}`).style.width = `${pct}%`;
-                $(`dist-bar-${id}`).textContent = `${name} (${pct}%)`;
-            });
-            $('test-avg-latency').textContent = `${Math.round(totalMs / i)} ms`;
-            await new Promise(r => setTimeout(r, 100));
-        } catch (e) {
-            console.error(e);
-        }
-    }
-    btn.disabled = false;
-    btn.textContent = '🚀 Re-Run 10-Request Cluster Test';
-    showToast(`Test complete! Web01: ${w1}, Web02: ${w2}`, 'success');
+.kpi-card {
+    background: #ffffff;
+    border: 1px solid #fbcfe8;
+    border-radius: 16px;
+    padding: 1.35rem 1.5rem;
+    box-shadow: 0 4px 18px rgba(244, 114, 182, 0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-function setupEvents() {
-    let timer;
-    const setSearch = value => {
-        state.searchQuery = value;
-        $('btn-clear-search').style.display = value ? 'block' : 'none';
-        fetchCityData();
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(244, 114, 182, 0.15);
+}
 
+.kpi-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #64748b;
+}
 
-    $('sort-select').onchange = e => { state.sortBy = e.target.value; fetchCityData(); };
-    document.querySelectorAll('.pill-btn').forEach(pill => {
-        pill.onclick = () => {
-            document.querySelectorAll('.pill-btn').forEach(p => p.classList.remove('active'));
-            pill.classList.add('active');
-            state.activeCategory = pill.dataset.category;
-            fetchCityData();
-        };
-    });
+.kpi-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 0.4rem 0 0.2rem;
+}
+
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: #1e293b;
+    line-height: 1.2;
+}
+
+.kpi-unit {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.kpi-subtext {
+    font-size: 0.82rem;
+    color: #64748b;
+}
+
+.highlight-clean {
+    color: #059669 !important;
+}
+
+.highlight-risk {
+    color: #e11d48 !important;
+}
+
+/* Row 2: Controls & Filters Section */
+.controls-section {
+    background: #ffffff;
+    border: 1px solid #fbcfe8;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 4px 18px rgba(244, 114, 182, 0.08);
+    margin-bottom: 2rem;
+}
+
+.search-filter-container {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.1rem;
+}
+
+.search-box {
+    position: relative;
+    flex: 1 1 240px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 0.6rem 0.85rem 0.6rem 2.4rem;
+}
+
+.global-query-group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1 1 260px;
+}
+
+.global-query-group input {
+    flex: 1;
+}
+
+.sort-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sort-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.view-toggle {
+    display: inline-flex;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 2px;
+}
+
+.btn-toggle {
+    border: none;
+    background: transparent;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.btn-toggle.active {
+    background: #f472b6;
+    color: #ffffff;
+}
+
+.category-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    padding-top: 1rem;
+    border-top: 1px solid #fce7f3;
+}
+
+.filter-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-right: 0.25rem;
+}
+
+.pill-btn {
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    padding: 0.35rem 0.95rem;
+    border-radius: 99px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.pill-btn:hover {
+    border-color: #f472b6;
+    background: #fdf2f8;
+}
+
+.pill-btn.active {
+    background: #f472b6;
+    color: #ffffff;
+    border-color: #f472b6;
+}
+
+/* Global Form & Button Basics */
+input,
+select {
+    padding: 0.55rem 0.85rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font: inherit;
+    background: #ffffff;
+    color: #1e293b;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input:focus,
+select:focus {
+    border-color: #f472b6;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: #f472b6;
+    color: #ffffff;
+}
+
+.btn-primary:hover {
+    background: #ec4899;
+}
+
+.btn-outline {
+    background: #ffffff;
+    border: 1px solid #fbcfe8;
+    color: #1e293b;
+}
+
+.btn-outline:hover {
+    border-color: #4ade80;
+    background: #f0fdf4;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.btn-icon {
+    background: #ffffff;
+    border: 1px solid #fbcfe8;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+
+/* City Cards & Table */
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+}
+
+.city-card {
+    background: #ffffff;
+    border: 1px solid #fbcfe8;
+    border-radius: 14px;
+    padding: 1.25rem;
+    box-shadow: 0 4px 15px rgba(244, 114, 182, 0.08);
+}
+
+.city-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.city-country {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.status-good { background: #dcfce7; color: #15803d; }
+.status-moderate { background: #fef3c7; color: #b45309; }
+.status-sensitive { background: #ffedd5; color: #c2410c; }
+.status-unhealthy { background: #ffe4e6; color: #be123c; }
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+}
+
+/* Modals & Toasts */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    display: grid;
+    place-items: center;
+    z-index: 100;
+}
+
+.modal-window {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 1.5rem;
+    max-width: 620px;
+    width: 90%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.toast-container {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    z-index: 200;
+}
+
+.toast {
+    background: #ffffff;
+    border-left: 4px solid #4ade80;
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Minimal fixes */
+.modal-backdrop { justify-content: center; align-items: center; }
+.modal-window.modal-lg { max-width: 780px; }
+.distribution-bar { display: flex; height: 28px; border-radius: 99px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 1rem; }
+.dist-segment { display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; transition: width 0.4s ease; }
+.dist-web01 { background: #38bdf8; }
+.dist-web02 { background: #a855f7; color: #ffffff; }
+.cluster-summary-box { display: flex; gap: 2rem; margin: 1rem 0; }
+.cluster-metric { display: flex; flex-direction: column; }
+.toast-success { border-left: 4px solid #10b981; }
+.toast-error { border-left: 4px solid #f43f5e; background: #fff1f2; }
+.aqi-gauge { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 68px; height: 68px; border-radius: 50%; border: 3px solid #e2e8f0; }
 
