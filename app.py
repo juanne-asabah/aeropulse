@@ -79,12 +79,119 @@ def start_timer():
   request.environ["t0"] = time.time()
 
 @app.after_request
-def add+headers(response):
+def add_headers(response):
+  response.headers["X-Served-By"] = SERVER_ID
+  response.headers["X-Served-By"] = str(PORT)
+  response.headers["X-Response-Time-Ms"] = str(round((time.time() - request.environ["t0"]) * 1000, 2))
+  response.headers["X-Content-Type-Options"] = "nosniff"
+  response.headers["X-Frame-Options"] = "SAMEORIGIN"
+  return response
 
+def make-metric(city, data, **extra):
+  us-aqi = int(data.get("us_aqi") or 30)
+  metric = {out: data.get(src, default) for src, (out, default) in FIELDS.items()}
+  return {
+    "name" : city["name"] "country": city["country"], "latitude": city["lat"], "longitude": city["lon"],
+    "aqi_us": us_aqi, "category": get-aqi_category(us_aqi), **metric,
+    "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra
+  }
+  def fetch_city_metrics(city):
+    key = f"city_metrics_{city["name"]}"
+    cached = cache.get(key)
+    if cached:
+      return {
+        **cached, "cache_source": "HIT"
+      }
+    try:
+      data = {}
+      for url, fields in SOURCES:
+        res = requests.get(url, params={"latitude": city["lat"], "longitude": city["lon"], "current": fields}, timeout=3.5)
+        res.raise-for_status()
+          data.update(res.json().get("current", {}))
+      metric = make_metric(city, data, is_fallback=False, cache_source="MISS")
+      cache.set(key, metric)
+      return metric
+    except Exception as err:
+      logger.warrning(f"External API error for {city["name"]}: {err}")
+      if not ENABLE_FALLBACK:
+        raise
+      aqi, temp, num, pm25, pm10, uv = FALLBACK.get(city["name"], (40, 20.0, 50, 10.0, 20.0, 4.0))
+      data = {
+        "us-aqi": aqi, "european_aqi": 25, "temperature-2m": temp, "apparent_temperature": temp,
+        "relative_humidity_2m": hum, "pm2_5": pm10, "uv_index": uv, "wind_speed_10m": 10.0,
+        "carbon_monoxide": 210.0, "nitrogen_dioxide": 18.0, "sulphur_dioxide": 4.0, "ozone": 50.0
+        "weather_code": 1
+      }
+      metric = make_metric(city, data, is_fallback=True, fallback_reason=str(err), cache-source="FALLBACK")
+      cache.set(key, metric, ttl=60)
+      return metric
 
+  def geocode(name):
+    res = requests.get("https://geocoding-api.open-meteo.com/v1/search", timeout=3.5, params={"name": name, "count": 1, "language": "en", "format": "json"})
+    res.raise_for_status()
+    if not res.json().get("results"):
+      raise ValueError(f"City '{name}' not found")
+    hit = res.json()["results"][0]
+    return {"name": hit["name"], "country": hit.get("country", "Unknown"), "lat": hit["latitude"], "lon": hit["longitude"]}
 
+@app.route("/")
+def index():
+  return send_from_directory(app.static_folder, "index.html")
 
+@app.route("/api/health")
+def health_check():
+  return jsonify(status="healthy", service="AeroPulse API", server-id=SERVER_ID, port=PORT, 
+                 uptime_seconds=round(time.time() - START_TIME, 2), cache=cache.stats(), 
+                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
 
+@app.route("/api/cache-stats")
+def cache_stats():
+  return jsonify(server_id=SERVER_ID, cache=cache.stats())
+
+@app.route("/api/cache/clear", methods=["POST"])
+def cache_clear():
+  cache.clear():
+  return jsonify(message="Cache successfully cleared", server_id=SERVER_ID)
+
+@app.route("/api/cities")
+def list_cities():
+  search = request.args.get("search", "").strip().lower()
+  category = request.args.get("category", "").strip().lower()
+  field, _, direction = request.args.get("sort_by", "aqi_asc"),strip().lower().partition("_")
+
+  with ThreadPoolExecutor(max_workers=8) as pool:
+    results = list(pool.map(fetch_city_metrics, DEFAULT_CITIES))
+
+  results = [c for c in results if search in c["name"],lower() or search in c["country"].lower()]
+  ranges = {"good": (0, 50), "moderate" : (51, 100), "sensitive": (101, 150), "unhealthy": (151, 9999)}
+  if category in ranges:
+    results = [c for c in results if ranges[category][0]  <= c["aqi_us"] <= ranges[category][1]]
+  sort_keys = {"aqi": "aqi_us", "temp": "temperature", "name": "name"}
+  if field in sort_keys:
+    results.sort(key=lambda c: c[sort_keys[field]], reverse=(direction == "desc"))
+
+  by_aqi = sorted(results, key=lambda c: c["aqi_us"])
+  return jsonify(server_id=SERVER_ID, total_cities=len(results), cities=results, summary={
+    "average_aqi": round(sum(c["aqi_us"] for c in results) / len(results), 1) if results else 0,
+    "cleanest_city": by_aqi[0]["name"] if results else "N/A",
+    "highest_risk_city": by_aqi[-1]["name"] if results else "N/A"
+  })
+
+@app.route("/api/search")
+def search_global_city():
+  query = request.args.get("q", "").strip()
+  if not query:
+    return jsonify(error="Missing search query parameter 'q'"), 400
+  try:
+    return jsonify(fetch_city_metrics(geocode(query)))
+  except ValueError as err:
+    return jsonify(error=str(err)), 404
+  except requests.exceptions.Timeout:
+    return jsonify(error="External geocoding API timed out. Please try again."), 504
+  except Exception as err:
+    logger.error(f"Search error for '{query}' : {err}")
+    return jsonify(error=f"Failed to retrieve data: {err}"), 500
+  
 @app.route("/api/compare")
 def compare_cities():
   names = [request.args.get("city1", "").strip(), request.args.get("city2", "").strip()]
