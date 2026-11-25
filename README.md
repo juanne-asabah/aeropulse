@@ -35,33 +35,4 @@ The app runs on two web servers (`Web01` and `Web02`) behind an HAProxy load bal
 
 ## APIs Used
 Data is provided by [Open-Meteo](https://open-meteo.com) under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) (thanks to the Open-Meteo team):
-- [Air Quality API](https://open-meteo.com/en/docs/air-quality-api)
-- [Weather Forecast API](https://open-meteo.com/en/docs)
-- [Geocoding API](https://open-meteo.com/en/docs/geocoding-api)
-
-## API Endpoints
-
-| Endpoint | Description |
-| :--- | :--- |
-| `GET /` | Dashboard web page |
-| `GET /api/cities?search=&category=&sort_by=` | List cities with search, filter, and sort |
-| `GET /api/search?q=<city>` | Look up any city worldwide |
-| `GET /api/compare?city1=&city2=` | Compare two cities |
-| `GET /api/health` | Health check (includes responding `server_id`) |
-| `GET /api/cache-stats` | Cache hit/miss statistics |
-
-## Project Structure
-
-```text
-app.py                      Flask backend (API + serves frontend)
-static/index.html           Web page
-static/css/style.css        Styles
-static/js/app.js            Frontend logic
-haproxy/haproxy.cfg         HAProxy configuration for Lb01
-deploy/systemd/             Systemd service files for Web01 and Web02
-tests/test_app.py           Automated test suite (9 tests)
-run_cluster.py              Local simulator for Web01, Web02, and a load balancer
-Dockerfile                  Optional container build
-.dockerignore               Files excluded from Docker image
-.env.example                Environment variables template
-requirements.txt            Python dependencies
+- [Air Quality API](https://open-meteo.com/en/docs
