@@ -13,7 +13,7 @@ The app runs on two web servers (`Web01` and `Web02`) behind an HAProxy load bal
 | Load balancer IP | `13.135.251.150` |
 | Web01 (direct) | `http://35.177.108.124:5001` |
 | Web02 (direct) | `http://18.171.134.109:5002` |
-| Demo video (under 2 min) | `https://youtu.be/<your-video-id>` |
+| Demo video (under 2 min) | `https://youtu.be/pYVDFGDlPfs` |
 
 ## API Keys & Authentication
 - **API key:** None required (Open-Meteo is free without a key).
