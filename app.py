@@ -9,17 +9,17 @@ import requests
 SERVER_ID = os.environ.get("SERVER_ID", "Web01")
 PORT = int(os.environ.get("PORT", 5001))
 HOST = os.environ.get("HOST", "0.0.0.0")
-CACHE_TTL = int(os.environ,get("CACHE_TTL_SECONDS", 300))
-ENABLE_FALLBACK = int(os.environ,get("ENABLE_FALLBACK". True),lower() in ("true", "1", "yes"))
+CACHE_TTL = int(os.environ.get("CACHE_TTL_SECONDS", 300))
+ENABLE_FALLBACK = (os.environ.get("ENABLE_FALLBACK", "True").lower() in ("true", "1", "yes"))
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 START_TIME = time.time()
-logging.basicConfig(level=logging.INFO, format=f"[%(asctime)s] [{SERVE_ID}] [%(levelname)s] %(message)s")
+logging.basicConfig(level=logging.INFO, format=f"[%(asctime)s] [{SERVER_ID}] [%(levelname)s] %(message)s")
 logger = logging.getLogger("AeroPulse")
 
 class InMemoryTTLCache:
   def __init__(self, default_ttl=300):
-    self.data, self._lock, self.default_ttl = {}, threading.Lock(), default_ttl
+    self._data, self._lock, self.default_ttl = {}, threading.Lock(), default_ttl
     self.hits = self.misses = 0
 
   def get(self, key):
@@ -33,11 +33,15 @@ class InMemoryTTLCache:
 
   def set(self, key, value, ttl=None):
     with self._lock:
+      self._data[key] = (value, time.time() + (self.default_ttl if ttl is None else ttl))
+
+  def stats(self):
+    with self._lock:
       total = self.hits + self.misses
       return {"active_entries" : sum(time.time() <= v[1] for v in self._data.values()),
-      "total_hits": self.hits, "total_misses": self.misses,
-      "hit_ratio_percent": round(self.hits / total * 100, 2) if total else 0.0,
-      "default_ttl_seconds": self.default_ttl}
+              "total_hits": self.hits, "total_misses": self.misses,
+              "hit_ratio_percent": round(self.hits / total * 100, 2) if total else 0.0,
+              "default_ttl_seconds": self.default_ttl}
 
   def clear(self):
     with self._lock:
@@ -50,13 +54,13 @@ CITY_DATA = [
   ("Tokyo", "Japan", 35.6895, 139.6917, 28, 18.2, 55, 6.8, 14.2, 4.1),
   ("London", "United Kingdom", 51.5074, -0.1278, 42, 14.5, 78, 10.2, 18.0, 2.4),
   ("New York", "United States", 40.7128, -74.0060, 54, 16.0, 60, 13.5, 22.4, 5.0),
-  ("Paris" "France", 48.8566, 2.3522, 38, 15.1, 65, 9.1 16.7, 3.8),
-  ("Nairobi", "Kenya", -1.2921, 36.8219, 4, 23.4, 58, 11.0, 21.0, 7.5),
-  ("Sydney" "Australia", -33.8688, 151.2093, 24, 21.0, 62, 5.9, 12.3, 6.2),
-  ("Delhi". "India", 28.6139, 77.2090, 178, 29.8, 45, 108.5, 195.0, 6.8),
-  ("Cairo". "Egypt",30.0444, 31.2357, 112, 28.0, 40, 40.2, 85.0, 7.0),
-  ("Sao Paulo", "Brazil", -23.5505, -46.6333, 68, 24.5, 70, 20.3, 34.0, 8.0),
-  ("Singapore". "Singapore", 1.3521, 103.8198, 49, 30.5, 82, 12.0, 20.5, 9.2),
+  ("Paris", "France", 48.8566, 2.3522, 38, 15.1, 65, 9.1, 16.7, 3.8),
+  ("Nairobi", "Kenya", -1.2921, 36.8219, 45, 23.4, 58, 11.0, 21.0, 7.5),
+  ("Sydney", "Australia", -33.8688, 151.2093, 24, 21.0, 62, 5.9, 12.3, 6.2),
+  ("Delhi", "India", 28.6139, 77.2090, 178, 29.8, 45, 108.5, 195.0, 6.8),
+  ("Cairo", "Egypt",30.0444, 31.2357, 112, 28.0, 40, 40.2, 85.0, 7.0),
+  ("São Paulo", "Brazil", -23.5505, -46.6333, 68, 24.5, 70, 20.3, 34.0, 8.0),
+  ("Singapore", "Singapore", 1.3521, 103.8198, 49, 30.5, 82, 12.0, 20.5, 9.2),
   ("Berlin", "Germany", 52.5200, 13.4050, 35, 13.0, 68, 8.4, 15.2, 3.0),
   ("Toronto", "Canada", 43.6532, -79.3832, 31, 11.5, 60, 7.5, 13.8, 4.0),
 ]
@@ -64,15 +68,15 @@ DEFAULT_CITIES = [{"name": c[0], "country": c[1], "lat": c[2], "lon": c[3]} for 
 FALLBACK = {c[0]: c[4:] for c in CITY_DATA}
 
 FIELDS = {"european_aqi": ("aqi_european", 20), "temperature_2m": ("temperature", 20.0),
-          "apparent_temperature": ("feels_like", 20.0), "relative_humidity_2m": ("humidity", 50)
-          "wind_speed_10m": ("wind_speed", 5.0), "uv_index": ("uv_index, 3.0"), "pm2_5": ("pm2_5", 8.0),
+          "apparent_temperature": ("feels_like", 20.0), "relative_humidity_2m": ("humidity", 50),
+          "wind_speed_10m": ("wind_speed", 5.0), "uv_index": ("uv_index", 3.0), "pm2_5": ("pm2_5", 8.0),
           "pm10": ("pm10", 15.0), "carbon_monoxide": ("co", 200.0), "nitrogen_dioxide": ("no2", 15.0),
           "sulphur_dioxide": ("so2", 5.0), "ozone": ("o3", 45.0), "weather_code": ("weather_code", 0)}
 
-SOURCES - [("https://air-quality-api.open-meteo.com/v1/air-quality",
+SOURCES = [("https://air-quality-api.open-meteo.com/v1/air-quality",
             "european_aqi,us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,uv_index"),
             ("https://api.open-meteo.com/v1/forecast",
-            "temperature_2m, relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m")]
+            "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m")]
 
 @app.before_request
 def start_timer():
@@ -81,58 +85,64 @@ def start_timer():
 @app.after_request
 def add_headers(response):
   response.headers["X-Served-By"] = SERVER_ID
-  response.headers["X-Served-By"] = str(PORT)
+  response.headers["X-Server-Port"] = str(PORT)
   response.headers["X-Response-Time-Ms"] = str(round((time.time() - request.environ["t0"]) * 1000, 2))
   response.headers["X-Content-Type-Options"] = "nosniff"
   response.headers["X-Frame-Options"] = "SAMEORIGIN"
   return response
 
-def make-metric(city, data, **extra):
-  us-aqi = int(data.get("us_aqi") or 30)
+def get_aqi_category(us_aqi):
+  for limit, label in [(50, "Good"), (100, "Moderate"), (150, "Unhealthy for Sensitive Groups"), (200, "Unhealthy"), (300, "Very Unhealthy")]:
+    if us_aqi <= limit:
+      return label
+  return "Hazardous"
+
+def make_metric(city, data, **extra):
+  us_aqi = int(data.get("us_aqi") or 30)
   metric = {out: data.get(src, default) for src, (out, default) in FIELDS.items()}
   return {
-    "name" : city["name"] "country": city["country"], "latitude": city["lat"], "longitude": city["lon"],
-    "aqi_us": us_aqi, "category": get-aqi_category(us_aqi), **metric,
+    "name" : city["name"], "country": city["country"], "latitude": city["lat"], "longitude": city["lon"],
+    "aqi_us": us_aqi, "category": get_aqi_category(us_aqi), **metric,
     "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **extra
   }
-  def fetch_city_metrics(city):
-    key = f"city_metrics_{city["name"]}"
-    cached = cache.get(key)
-    if cached:
-      return {
-        **cached, "cache_source": "HIT"
-      }
-    try:
-      data = {}
-      for url, fields in SOURCES:
-        res = requests.get(url, params={"latitude": city["lat"], "longitude": city["lon"], "current": fields}, timeout=3.5)
-        res.raise-for_status()
-          data.update(res.json().get("current", {}))
-      metric = make_metric(city, data, is_fallback=False, cache_source="MISS")
-      cache.set(key, metric)
-      return metric
-    except Exception as err:
-      logger.warrning(f"External API error for {city["name"]}: {err}")
-      if not ENABLE_FALLBACK:
-        raise
-      aqi, temp, num, pm25, pm10, uv = FALLBACK.get(city["name"], (40, 20.0, 50, 10.0, 20.0, 4.0))
-      data = {
-        "us-aqi": aqi, "european_aqi": 25, "temperature-2m": temp, "apparent_temperature": temp,
-        "relative_humidity_2m": hum, "pm2_5": pm10, "uv_index": uv, "wind_speed_10m": 10.0,
-        "carbon_monoxide": 210.0, "nitrogen_dioxide": 18.0, "sulphur_dioxide": 4.0, "ozone": 50.0
-        "weather_code": 1
-      }
-      metric = make_metric(city, data, is_fallback=True, fallback_reason=str(err), cache-source="FALLBACK")
-      cache.set(key, metric, ttl=60)
-      return metric
+def fetch_city_metrics(city):
+  key = f"city_metrics_{city['name']}"
+  cached = cache.get(key)
+  if cached:
+    return {
+      **cached, "cache_source": "HIT"
+    }
+  try:
+    data = {}
+    for url, fields in SOURCES:
+      res = requests.get(url, params={"latitude": city["lat"], "longitude": city["lon"], "current": fields}, timeout=3.5)
+      res.raise_for_status()
+      data.update(res.json().get("current", {}))
+    metric = make_metric(city, data, is_fallback=False, cache_source="MISS")
+    cache.set(key, metric)
+    return metric
+  except Exception as err:
+    logger.warning(f"External API error for {city['name']}: {err}")
+    if not ENABLE_FALLBACK:
+      raise
+    aqi, temp, hum, pm25, pm10, uv = FALLBACK.get(city["name"], (40, 20.0, 50, 10.0, 20.0, 4.0))
+    data = {
+      "us_aqi": aqi, "european_aqi": 25, "temperature_2m": temp, "apparent_temperature": temp,
+      "relative_humidity_2m": hum, "pm2_5": pm25, "pm10": pm10, "uv_index": uv, "wind_speed_10m": 10.0,
+      "carbon_monoxide": 210.0, "nitrogen_dioxide": 18.0, "sulphur_dioxide": 4.0, "ozone": 50.0,
+      "weather_code": 1
+    }
+    metric = make_metric(city, data, is_fallback=True, fallback_reason=str(err), cache_source="FALLBACK")
+    cache.set(key, metric, ttl=60)
+    return metric
 
-  def geocode(name):
-    res = requests.get("https://geocoding-api.open-meteo.com/v1/search", timeout=3.5, params={"name": name, "count": 1, "language": "en", "format": "json"})
-    res.raise_for_status()
-    if not res.json().get("results"):
-      raise ValueError(f"City '{name}' not found")
-    hit = res.json()["results"][0]
-    return {"name": hit["name"], "country": hit.get("country", "Unknown"), "lat": hit["latitude"], "lon": hit["longitude"]}
+def geocode(name):
+  res = requests.get("https://geocoding-api.open-meteo.com/v1/search", timeout=3.5, params={"name": name, "count": 1, "language": "en", "format": "json"})
+  res.raise_for_status()
+  if not res.json().get("results"):
+    raise ValueError(f"City '{name}' not found")
+  hit = res.json()["results"][0]
+  return {"name": hit["name"], "country": hit.get("country", "Unknown"), "lat": hit["latitude"], "lon": hit["longitude"]}
 
 @app.route("/")
 def index():
@@ -140,7 +150,7 @@ def index():
 
 @app.route("/api/health")
 def health_check():
-  return jsonify(status="healthy", service="AeroPulse API", server-id=SERVER_ID, port=PORT, 
+  return jsonify(status="healthy", service="AeroPulse API", server_id=SERVER_ID, port=PORT, 
                  uptime_seconds=round(time.time() - START_TIME, 2), cache=cache.stats(), 
                  timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
 
@@ -150,19 +160,19 @@ def cache_stats():
 
 @app.route("/api/cache/clear", methods=["POST"])
 def cache_clear():
-  cache.clear():
+  cache.clear()
   return jsonify(message="Cache successfully cleared", server_id=SERVER_ID)
 
 @app.route("/api/cities")
 def list_cities():
   search = request.args.get("search", "").strip().lower()
   category = request.args.get("category", "").strip().lower()
-  field, _, direction = request.args.get("sort_by", "aqi_asc"),strip().lower().partition("_")
+  field, _, direction = request.args.get("sort_by", "aqi_asc").strip().lower().partition("_")
 
   with ThreadPoolExecutor(max_workers=8) as pool:
     results = list(pool.map(fetch_city_metrics, DEFAULT_CITIES))
 
-  results = [c for c in results if search in c["name"],lower() or search in c["country"].lower()]
+  results = [c for c in results if search in c["name"].lower() or search in c["country"].lower()]
   ranges = {"good": (0, 50), "moderate" : (51, 100), "sensitive": (101, 150), "unhealthy": (151, 9999)}
   if category in ranges:
     results = [c for c in results if ranges[category][0]  <= c["aqi_us"] <= ranges[category][1]]
@@ -199,7 +209,7 @@ def compare_cities():
     return jsonify(error="Both 'city1' and 'city2' query parameters are required"), 400
 
   def resolve(name):
-    known = next((c for c in DEFAULT_CITIES if c["name"],lower() == name.lower()), None)
+    known = next((c for c in DEFAULT_CITIES if c["name"].lower() == name.lower()), None)
     return fetch_city_metrics(known or geocode(name))
 
   try:
@@ -208,11 +218,11 @@ def compare_cities():
       "cleaner_city": m1["name"] if m1["aqi_us"] < m2["aqi_us"] else m2["name"],
       "aqi_difference": abs(m1["aqi_us"] - m2["aqi_us"]), "city1": m1, "city2": m2
     })
-  except ValueError as arr:
+  except ValueError as err:
     return jsonify(error=str(err)), 404
   except Exception as err:
     return jsonify(error=f"Comparison failed: {err}"), 500
 
-if__name__ == "__main__":
+if __name__ == "__main__":
   logger.info(f"Starting AeroPulse service on {HOST}:{PORT} (ID: {SERVER_ID})")
-  app.run(host=HOST, port=PORT, debug-False)
+  app.run(host=HOST, port=PORT, debug=False)
