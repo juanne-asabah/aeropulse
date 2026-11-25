@@ -22,10 +22,10 @@
           
           <div class="cluster-status-bar">
             <div class="node-pill" id="cluster-node-pill" title="Load Balancer Node">
-              <span class="pulsing-dot"><span>
+              <span class="pulsing-dot"></span>
               <span class="node-label">Server</span>
               <span class="node-value" id="current-server-id">Checking...</span>
-              <span class="node-latency">-- ms</span>
+              <span class="node-latency" id="current-latency">-- ms</span>
             </div>
             <button class="btn btn-outline btn-sm" id="btn-test-lb" title="Test Round Robin">
               ⚖️
@@ -52,7 +52,15 @@
               <span class="kpi-value" id="kpi-avg-aqi">-</span>
               <span class="kpi-unit">US AQI</span>
         </div>
-        <span class="kpi-subtext" id="kpi-cleanest-sub">Lowest particulate load</span>
+        <span class="kpi-subtext" id="kpi-avg-desc">Loading</span>
+        </div>
+
+        <div class="kpi-card">
+          <span class="kpi-title">Cleanest City</span>
+          <div class="kpi-value-row">
+            <span class="kpi-value highlight-clean" id="kpi-cleanest-city">-</span>
+          </div>
+          <span class="kpi-subtext">Lowest particulate load</span>
         </div>
 
         <div class="kpi-card">
@@ -74,13 +82,19 @@
         </div>
       </section>
 
-      <section class="controls-section">
-        <div class="search-filter-container">
-          < class="search-box">
+      <div class="controls-section">
+        <div class="search-filter-container"></div>
+          <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" id="filter-search-input" placeholder="Search by city name/country" autocomplete="off"></input>
-            <button class="clear-btn" id="btn-clear-search" style="display: none;">X<>
+            <input type="text" id="filter-search-input" placeholder="Search by city name/country" autocomplete="off">
+            <button class="clear-btn" id="btn-clear-search" style="display: none;">X</button>
           </div>
+
+          <div class="search-box">
+            <span class="search-icon">🌍</span>
+            <input type="text" id="global-search-input" placeholder="Query any city on Earth..." autocomplete="off">
+          </div>
+          <button class="btn btn-primary" id="btn-global-search">Search Global</button>
 
           <div class="sort-group">
             <label for="sort-select">Sort by:</label>
@@ -106,9 +120,9 @@
           <button class="pill-btn pill-sensitive" data-category="sensitive">Sensitive(101-150)</button>
           <button class="pill-btn pill-unhelathy" data-category="unhealthy">Unhealthy(151+)</button>
         </div>
-      </section>
+      </div>
 
-      <section class="results-section">
+      <div class="results-section">
         <div class="loading-state" id=loading-spinner>
           <div class="spinner"></div>
           <p>Fetching atmospheric telemetry via Open-Meteo REST API...</p>
@@ -120,7 +134,7 @@
           <button class="btn btn-sm btn-outline" id="btn-retry">Retry fetch...</button>
         </div>
         
-        <div class="cards-grid" id="table-container" style="display: none;"></div>
+        <div class="cards-grid" id="cards-container" style="display: none;"></div>
 
         <div class="table-container" id="table-container" style="display: none;">
           <table class="data-table">
@@ -137,16 +151,18 @@
                 <th>Action</th>
               </tr>
             </thead>
+
+            <tbody id="table-body"></tbody>
           </table>
         </div>
-      </section>
+      </div>
     </main>
 
     <div class="modal-backdrop" id="modal-advisory" style="display: none;">
       <div class="modal-window">
         <div class="modal-header">
           <div>
-            <h3 id="modal-close-btn">City Advisory</h3>
+            <h3 id="modal-city-title">City Advisory</h3>
             <span class="modal-subtitle" id="modal-city-subtitle">Detailed Audit</span>
           </div>
           <button class="modal-close-btn" id="btn-close-advisory">X</button>
@@ -162,7 +178,7 @@
             <h3>⚖️Load Balancer Cluster Distribution Benchmark</h3>
             <span class="modal-subtitle">Verifying round robin traffic distribution across Web01 & Web02</span>
           </div>
-          <button class="modal-close-btn" id="btn-close-clster-test">X</button>
+          <button class="modal-close-btn" id="btn-close-cluster-test">X</button>
         </div>
         <div class="modal-body">
           <p class="modal-desc">
@@ -177,7 +193,7 @@
             </div>
             <div class="cluster-metric">
               <span class="cm-label">Web02 Resources</span>
-              <span class="cm-val highlight-web02" id="test-count-web02">0<span>
+              <span class="cm-val highlight-web02" id="test-count-web02">0</span>
             </div>
             <div class="cluster-metric">
               <span class="cm-label">Avg Cluster Latency</span>
@@ -187,7 +203,7 @@
           <div class="distribution-bar-wrapper">
             <div class="distribution-bar">
               <div class="dist-segment dist-web01" id="dist-bar-web01" style="width: 50%;">Web01 (50%)</div>
-              <div class="dist-segment dist-we02" id="dist-bar-web02" style="width: 50%;">Web02 (50%)</div>
+              <div class="dist-segment dist-web02" id="dist-bar-web02" style="width: 50%;">Web02 (50%)</div>
             </div>
           </div>
 
@@ -224,6 +240,6 @@
       </div>
     </footer>
 
-    <script src="js/app.js">
+    <script src="js/app.js"></script>
   </body>
 </html>
