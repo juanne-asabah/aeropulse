@@ -193,18 +193,7 @@ function setupEvents() {
         state.searchQuery = value;
         $('btn-clear-search').style.display = value ? 'block' : 'none';
         fetchCityData();
-    };
-    $('filter-search-input').oninput = e => {
-        clearTimeout(timer);
-        timer = setTimeout(() => setSearch(e.target.value.trim()), 250);
-    };
-    $('btn-clear-search').onclick = () => { $('filter-search-input').value = ''; setSearch(''); };
 
-    $('btn-global-search').onclick = () => {
-        const q = $('global-search-input').value.trim();
-        if (q) { searchGlobalCity(q); $('global-search-input').value = ''; }
-    };
-    $('global-search-input').onkeydown = e => { if (e.key === 'Enter') $('btn-global-search').click(); };
 
     $('sort-select').onchange = e => { state.sortBy = e.target.value; fetchCityData(); };
     document.querySelectorAll('.pill-btn').forEach(pill => {
